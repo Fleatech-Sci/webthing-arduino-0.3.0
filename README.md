@@ -4,7 +4,7 @@ webthing-arduino 0.3.0
 ======================
 
 This fork will host updated versions of Thing.h and ESPWebThingAdapter.h 
-[Will be uploaded by 13th April] to fulfill the API updates for
+to fulfill the API updates for
 ArduinoJson 7.x.x, ESPAsyncWebServer 3.7.2 and esp32 3.1.3.
 
 EthernetWebThingAdapter.h and WiFiWebThingAdapter.h have NOT been updated as yet.
@@ -157,6 +157,9 @@ void loop(void) {
 ```
 
 ## Configuration
+
+* With updates to ArduinoJson V7.x.x, JSON buffers are now dynamic. Refer to
+  Arduino Json documentation.
 
 * If you have a complex device with large thing descriptions, you may need to
   increase the size of the JSON buffers. The buffer sizes are configurable as
