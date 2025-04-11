@@ -11,35 +11,22 @@
 
 #pragma once
 
-#if defined(ESP32) || defined(ESP8266)
+#ifdef ESP32
+#include <AsyncTCP.h>
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#elif defined(ESP8266)
+#include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <ESP8266mDNS.h>
+#endif
 
 #include <ArduinoJson.h>
 #include <ESPAsyncWebServer.h>
 
-#ifdef ESP8266
-#include <ESP8266mDNS.h>
-#else
-#include <ESPmDNS.h>
-#endif
 #include "Thing.h"
 
 #define ESP_MAX_PUT_BODY_SIZE 512
-
-#ifndef LARGE_JSON_DOCUMENT_SIZE
-#ifdef LARGE_JSON_BUFFERS
-#define LARGE_JSON_DOCUMENT_SIZE 4096
-#else
-#define LARGE_JSON_DOCUMENT_SIZE 1024
-#endif
-#endif
-
-#ifndef SMALL_JSON_DOCUMENT_SIZE
-#ifdef LARGE_JSON_BUFFERS
-#define SMALL_JSON_DOCUMENT_SIZE 1024
-#else
-#define SMALL_JSON_DOCUMENT_SIZE 256
-#endif
-#endif
 
 class WebThingAdapter {
 public:
@@ -204,13 +191,15 @@ private:
   ThingDevice *lastDevice = nullptr;
   char body_data[ESP_MAX_PUT_BODY_SIZE];
   bool b_has_body_data = false;
-
+  
   bool verifyHost(AsyncWebServerRequest *request) {
     if (disableHostValidation) {
       return true;
     }
 
-    AsyncWebHeader *header = request->getHeader("Host");
+	// modified by A.L.Benci, 08/04/2025
+	//AsyncWebHeader *header = request->getHeader("Host");
+	const AsyncWebHeader *header = request->getHeader("Host");
     if (header == nullptr) {
       request->send(403);
       return false;
@@ -229,7 +218,7 @@ private:
   }
 
 #ifndef WITHOUT_WS
-  void sendErrorMsg(DynamicJsonDocument &prop, AsyncWebSocketClient &client,
+  void sendErrorMsg(JsonDocument &prop, AsyncWebSocketClient &client,
                     int status, const char *msg) {
     prop["error"] = msg;
     prop["status"] = status;
@@ -265,7 +254,7 @@ private:
     // For now each Thing stores its own Websocket connection object therefore.
 
     // Parse request
-    DynamicJsonDocument newProp(SMALL_JSON_DOCUMENT_SIZE);
+    JsonDocument newProp;
     auto error = deserializeJson(newProp, rawData, len);
     if (error) {
       sendErrorMsg(newProp, *client, 400, "Invalid json");
@@ -287,11 +276,12 @@ private:
       }
     } else if (messageType == "requestAction") {
       for (JsonPair kv : data) {
-        DynamicJsonDocument *actionRequest =
-            new DynamicJsonDocument(SMALL_JSON_DOCUMENT_SIZE);
+        JsonDocument *actionRequest =
+            new JsonDocument;
 
         JsonObject actionObj = actionRequest->to<JsonObject>();
-        JsonObject nested = actionObj.createNestedObject(kv.key());
+        //JsonObject nested = actionObj.createNestedObject(kv.key());
+		JsonObject nested = actionObj[kv.key()].to<JsonObject>();
 
         for (JsonPair kvInner : kv.value().as<JsonObject>()) {
           nested[kvInner.key()] = kvInner.value();
@@ -318,9 +308,10 @@ private:
 
   void sendChangedProperties(ThingDevice *device) {
     // Prepare one buffer per device
-    DynamicJsonDocument message(LARGE_JSON_DOCUMENT_SIZE);
+    JsonDocument message;
     message["messageType"] = "propertyStatus";
-    JsonObject prop = message.createNestedObject("data");
+    //JsonObject prop = message.createNestedObject("data");
+	JsonObject prop = message["data"].to<JsonObject>();
     bool dataToSend = false;
     ThingItem *item = device->firstProperty;
     while (item != nullptr) {
@@ -361,11 +352,12 @@ private:
     AsyncResponseStream *response =
         request->beginResponseStream("application/json");
 
-    DynamicJsonDocument buf(LARGE_JSON_DOCUMENT_SIZE);
+    JsonDocument buf;
     JsonArray things = buf.to<JsonArray>();
     ThingDevice *device = this->firstDevice;
     while (device != nullptr) {
-      JsonObject descr = things.createNestedObject();
+      //JsonObject descr = things.createNestedObject();
+	  JsonObject descr = things.add<JsonObject>();
       device->serialize(descr, ip, port);
       descr["href"] = "/things/" + device->id;
       device = device->next;
@@ -382,7 +374,7 @@ private:
     AsyncResponseStream *response =
         request->beginResponseStream("application/json");
 
-    DynamicJsonDocument buf(LARGE_JSON_DOCUMENT_SIZE);
+    JsonDocument buf;
     JsonObject descr = buf.to<JsonObject>();
     device->serialize(descr, ip, port);
 
@@ -398,7 +390,7 @@ private:
     AsyncResponseStream *response =
         request->beginResponseStream("application/json");
 
-    DynamicJsonDocument doc(SMALL_JSON_DOCUMENT_SIZE);
+    JsonDocument doc;
     JsonObject prop = doc.to<JsonObject>();
     item->serializeValue(prop);
     serializeJson(prop, *response);
@@ -416,7 +408,7 @@ private:
     if (url == base || url == base + "/") {
       AsyncResponseStream *response =
           request->beginResponseStream("application/json");
-      DynamicJsonDocument doc(LARGE_JSON_DOCUMENT_SIZE);
+      JsonDocument doc;
       JsonArray queue = doc.to<JsonArray>();
       device->serializeActionQueue(queue, action->id);
       serializeJson(queue, *response);
@@ -438,7 +430,7 @@ private:
 
       AsyncResponseStream *response =
           request->beginResponseStream("application/json");
-      DynamicJsonDocument doc(SMALL_JSON_DOCUMENT_SIZE);
+      JsonDocument doc;
       JsonObject o = doc.to<JsonObject>();
       obj->serialize(o, device->id);
       serializeJson(o, *response);
@@ -482,8 +474,8 @@ private:
       return;
     }
 
-    DynamicJsonDocument *newBuffer =
-        new DynamicJsonDocument(SMALL_JSON_DOCUMENT_SIZE);
+    JsonDocument *newBuffer =
+        new JsonDocument;
     auto error = deserializeJson(*newBuffer, (const char *)body_data);
     if (error) { // unable to parse json
       b_has_body_data = false;
@@ -495,7 +487,8 @@ private:
 
     JsonObject newAction = newBuffer->as<JsonObject>();
 
-    if (!newAction.containsKey(action->id)) {
+    //if (!newAction.containsKey(action->id)) {
+	if (!newAction[action->id].is<int>()) {
       b_has_body_data = false;
       memset(body_data, 0, sizeof(body_data));
       request->send(400);
@@ -518,7 +511,7 @@ private:
                                      std::placeholders::_1));
 #endif
 
-    DynamicJsonDocument respBuffer(SMALL_JSON_DOCUMENT_SIZE);
+    JsonDocument respBuffer;
     JsonObject item = respBuffer.to<JsonObject>();
     obj->serialize(item, device->id);
     String jsonStr;
@@ -541,7 +534,7 @@ private:
     AsyncResponseStream *response =
         request->beginResponseStream("application/json");
 
-    DynamicJsonDocument doc(LARGE_JSON_DOCUMENT_SIZE);
+    JsonDocument doc;
     JsonArray queue = doc.to<JsonArray>();
     device->serializeEventQueue(queue, item->id);
     serializeJson(queue, *response);
@@ -556,7 +549,7 @@ private:
     AsyncResponseStream *response =
         request->beginResponseStream("application/json");
 
-    DynamicJsonDocument doc(LARGE_JSON_DOCUMENT_SIZE);
+    JsonDocument doc;
     JsonObject prop = doc.to<JsonObject>();
     ThingItem *item = rootItem;
     while (item != nullptr) {
@@ -575,7 +568,7 @@ private:
     AsyncResponseStream *response =
         request->beginResponseStream("application/json");
 
-    DynamicJsonDocument doc(LARGE_JSON_DOCUMENT_SIZE);
+    JsonDocument doc;
     JsonArray queue = doc.to<JsonArray>();
     device->serializeActionQueue(queue);
     serializeJson(queue, *response);
@@ -593,8 +586,8 @@ private:
       return;
     }
 
-    DynamicJsonDocument *newBuffer =
-        new DynamicJsonDocument(SMALL_JSON_DOCUMENT_SIZE);
+    JsonDocument *newBuffer =
+        new JsonDocument;
     auto error = deserializeJson(*newBuffer, (const char *)body_data);
     if (error) { // unable to parse json
       b_has_body_data = false;
@@ -629,7 +622,7 @@ private:
                                      std::placeholders::_1));
 #endif
 
-    DynamicJsonDocument respBuffer(SMALL_JSON_DOCUMENT_SIZE);
+    JsonDocument respBuffer;
     JsonObject item = respBuffer.to<JsonObject>();
     obj->serialize(item, device->id);
     String jsonStr;
@@ -652,7 +645,7 @@ private:
     AsyncResponseStream *response =
         request->beginResponseStream("application/json");
 
-    DynamicJsonDocument doc(LARGE_JSON_DOCUMENT_SIZE);
+    JsonDocument doc;
     JsonArray queue = doc.to<JsonArray>();
     device->serializeEventQueue(queue);
     serializeJson(queue, *response);
@@ -680,7 +673,7 @@ private:
       return;
     }
 
-    DynamicJsonDocument newBuffer(SMALL_JSON_DOCUMENT_SIZE);
+    JsonDocument newBuffer;
     auto error = deserializeJson(newBuffer, body_data);
     if (error) { // unable to parse json
       b_has_body_data = false;
@@ -690,7 +683,8 @@ private:
     }
     JsonObject newProp = newBuffer.as<JsonObject>();
 
-    if (!newProp.containsKey(property->id)) {
+    // if (!newProp.containsKey(property->id)) {
+	if (!newProp[property->id].is<int>()) {
       b_has_body_data = false;
       memset(body_data, 0, sizeof(body_data));
       request->send(400);
@@ -709,4 +703,3 @@ private:
   }
 };
 
-#endif // ESP

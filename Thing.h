@@ -7,6 +7,9 @@
  * This Source Code Form is subject to the terms of the Mozilla Public
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ *
+ * Update for Arduino Json V7.x.
+ * 
  */
 
 #pragma once
@@ -21,22 +24,6 @@
 
 #define ARDUINOJSON_USE_LONG_LONG 1
 #include <ArduinoJson.h>
-
-#ifndef LARGE_JSON_DOCUMENT_SIZE
-#ifdef LARGE_JSON_BUFFERS
-#define LARGE_JSON_DOCUMENT_SIZE 4096
-#else
-#define LARGE_JSON_DOCUMENT_SIZE 1024
-#endif
-#endif
-
-#ifndef SMALL_JSON_DOCUMENT_SIZE
-#ifdef LARGE_JSON_BUFFERS
-#define SMALL_JSON_DOCUMENT_SIZE 1024
-#else
-#define SMALL_JSON_DOCUMENT_SIZE 256
-#endif
-#endif
 
 enum ThingDataType { NO_STATE, BOOLEAN, NUMBER, INTEGER, STRING };
 typedef ThingDataType ThingPropertyType;
@@ -60,14 +47,16 @@ private:
 
 public:
   String name;
-  DynamicJsonDocument *actionRequest = nullptr;
+  // DynamicJsonDocument *actionRequest = nullptr;
+  JsonDocument *actionRequest = nullptr;
   String timeRequested;
   String timeCompleted;
   String status;
   String id;
   ThingActionObject *next = nullptr;
 
-  ThingActionObject(const char *name_, DynamicJsonDocument *actionRequest_,
+  // ThingActionObject(const char *name_, DynamicJsonDocument *actionRequest_,
+  ThingActionObject(const char *name_, JsonDocument *actionRequest_,
                     void (*start_fn_)(const JsonVariant &),
                     void (*cancel_fn_)())
       : start_fn(start_fn_), cancel_fn(cancel_fn_), name(name_),
@@ -96,7 +85,8 @@ public:
   }
 
   void serialize(JsonObject obj, String deviceId) {
-    JsonObject data = obj.createNestedObject(name);
+    //JsonObject data = obj.createNestedObject(name);
+	JsonObject data = obj[name].to<JsonObject>();
 
     JsonObject actionObj = actionRequest->as<JsonObject>();
     JsonObject inner = actionObj[name];
@@ -146,8 +136,11 @@ public:
 
 class ThingAction {
 private:
-  ThingActionObject *(*generator_fn)(DynamicJsonDocument *);
+  // ThingActionObject *(*generator_fn)(DynamicJsonDocument *);
+  ThingActionObject *(*generator_fn)(JsonDocument *);
 
+// All instances of DynamicJsonDocumnet have been replaced by JsonDocument form
+// hear on in.
 public:
   String id;
   String title;
@@ -157,20 +150,20 @@ public:
   ThingAction *next = nullptr;
 
   ThingAction(const char *id_,
-              ThingActionObject *(*generator_fn_)(DynamicJsonDocument *))
+              ThingActionObject *(*generator_fn_)(JsonDocument *))
       : generator_fn(generator_fn_), id(id_) {}
 
   ThingAction(const char *id_, JsonObject *input_,
-              ThingActionObject *(*generator_fn_)(DynamicJsonDocument *))
+              ThingActionObject *(*generator_fn_)(JsonDocument *))
       : generator_fn(generator_fn_), id(id_), input(input_) {}
 
   ThingAction(const char *id_, const char *title_, const char *description_,
               const char *type_, JsonObject *input_,
-              ThingActionObject *(*generator_fn_)(DynamicJsonDocument *))
+              ThingActionObject *(*generator_fn_)(JsonDocument *))
       : generator_fn(generator_fn_), id(id_), title(title_),
         description(description_), type(type_), input(input_) {}
 
-  ThingActionObject *create(DynamicJsonDocument *actionRequest) {
+  ThingActionObject *create(JsonDocument *actionRequest) {
     return generator_fn(actionRequest);
   }
 
@@ -188,7 +181,8 @@ public:
     }
 
     if (input != nullptr) {
-      JsonObject inputObj = obj.createNestedObject("input");
+      //JsonObject inputObj = obj.createNestedObject("input");
+	  JsonObject inputObj = obj["input"].to<JsonObject>();
       for (JsonPair kv : *input) {
         inputObj[kv.key()] = kv.value();
       }
@@ -197,8 +191,10 @@ public:
     // 2.11 Action object: A links array (An array of Link objects linking
     // to one or more representations of an Action resource, each with an
     // implied default rel=action.)
-    JsonArray inline_links = obj.createNestedArray("links");
-    JsonObject inline_links_prop = inline_links.createNestedObject();
+    //JsonArray inline_links = obj.createNestedArray("links");
+	JsonArray inline_links = obj["links"].to<JsonArray>();
+    //JsonObject inline_links_prop = inline_links.createNestedObject();
+	JsonObject inline_links_prop = inline_links.add<JsonObject>();
     inline_links_prop["href"] = "/things/" + deviceId + "/actions/" + id;
   }
 };
@@ -297,8 +293,10 @@ public:
     // 2.9 Property object: A links array (An array of Link objects linking
     // to one or more representations of a Property resource, each with an
     // implied default rel=property.)
-    JsonArray inline_links = obj.createNestedArray("links");
-    JsonObject inline_links_prop = inline_links.createNestedObject();
+    // JsonArray inline_links = obj.createNestedArray("links");
+    // JsonObject inline_links_prop = inline_links.createNestedObject();
+	JsonArray inline_links = obj["links"].to<JsonArray>();
+    JsonObject inline_links_prop = inline_links.add<JsonObject>();
     inline_links_prop["href"] =
         "/things/" + deviceId + "/" + resourceType + "/" + id;
   }
@@ -347,7 +345,8 @@ public:
 
     if (hasEnum) {
       enumVal = propertyEnum;
-      JsonArray propEnum = obj.createNestedArray("enum");
+      //JsonArray propEnum = obj.createNestedArray("enum");
+	  JsonArray propEnum = obj["enum"].to<JsonArray>();
       while (propertyEnum != nullptr && *enumVal != nullptr) {
         propEnum.add(*enumVal);
         enumVal++;
@@ -443,7 +442,8 @@ public:
   ThingDataValue getValue() { return this->value; }
 
   void serialize(JsonObject obj) {
-    JsonObject data = obj.createNestedObject(name);
+    // JsonObject data = obj.createNestedObject(name);
+	JsonObject data = obj[name].to<JsonObject>();
     switch (this->type) {
     case NO_STATE:
       break;
@@ -510,9 +510,10 @@ public:
   }
 
   void sendActionStatus(ThingActionObject *action) {
-    DynamicJsonDocument message(LARGE_JSON_DOCUMENT_SIZE);
+    JsonDocument message;
     message["messageType"] = "actionStatus";
-    JsonObject prop = message.createNestedObject("data");
+    //JsonObject prop = message.createNestedObject("data");
+	JsonObject prop = message["data"].to<JsonObject>();
     action->serialize(prop, id);
     String jsonStr;
     serializeJson(message, jsonStr);
@@ -615,7 +616,7 @@ public:
     }
   }
 
-  ThingActionObject *requestAction(DynamicJsonDocument *actionRequest) {
+  ThingActionObject *requestAction(JsonDocument *actionRequest) {
     JsonObject actionObj = actionRequest->as<JsonObject>();
 
     // There should only be one key/value pair
@@ -670,35 +671,36 @@ public:
     eventQueue = obj;
 
 #ifndef WITHOUT_WS
-    ThingEvent *event = findEvent(obj->name.c_str());
-    if (!event) {
-      return;
-    }
 
-    // * Send events as defined in "4.7 event message"
-    DynamicJsonDocument message(SMALL_JSON_DOCUMENT_SIZE);
-    message["messageType"] = "event";
-    JsonObject data = message.createNestedObject("data");
-    obj->serialize(data);
-    String jsonStr;
-    serializeJson(message, jsonStr);
+	ThingEvent *event = findEvent(obj->name.c_str());
+	if (!event) {
+	  return;
+	}
+	// * Send events as defined in "4.7 event message"
+	JsonDocument message;
+	message["messageType"] = "event";
+	JsonObject data = message["data"].to<JsonObject>();
+	obj->serialize(data);
+	String jsonStr;
+	serializeJson(message, jsonStr);
 
-    // Inform all subscribed ws clients about events
-    for (AsyncWebSocketClient *client :
-         ((AsyncWebSocket *)this->ws)->getClients()) {
-      uint32_t id = client->id();
-
-      if (event->isSubscribed(id)) {
-        ((AsyncWebSocket *)this->ws)->text(id, jsonStr);
-      }
-    }
+	// Inform all subscribed ws clients about events
+	AsyncWebSocket* websocket = (AsyncWebSocket*)this->ws;
+	// Use standard iterator access instead of range-based for loop
+	for (size_t i = 0; i < websocket->count(); i++) {
+	  AsyncWebSocketClient* client = websocket->client(i);
+	  if (client && event->isSubscribed(client->id())) {
+		client->text(jsonStr);
+	  }
+	}
+		
 #endif
   }
 
   void serialize(JsonObject descr, String ip, uint16_t port) {
     descr["id"] = this->id;
     descr["title"] = this->title;
-    descr["@context"] = "https://webthings.io/schemas";
+    descr["@context"] = "https://iot.mozilla.org/schemas";
 
     if (this->description != "") {
       descr["description"] = this->description;
@@ -711,41 +713,48 @@ public:
       descr["base"] = "http://" + ip + "/";
     }
 
-    JsonObject securityDefinitions =
-        descr.createNestedObject("securityDefinitions");
-    JsonObject nosecSc = securityDefinitions.createNestedObject("nosec_sc");
+    //JsonObject securityDefinitions = descr.createNestedObject("securityDefinitions");
+    //JsonObject nosecSc = securityDefinitions.createNestedObject("nosec_sc");
+	JsonObject securityDefinitions = descr["securityDefinitions"].to<JsonObject>();
+    JsonObject nosecSc = securityDefinitions["nosec_sc"].to<JsonObject>();
     nosecSc["scheme"] = "nosec";
     descr["security"] = "nosec_sc";
 
-    JsonArray typeJson = descr.createNestedArray("@type");
+    //JsonArray typeJson = descr.createNestedArray("@type");
+	JsonArray typeJson = descr["@type"].to<JsonArray>();
     const char **type = this->type;
     while ((*type) != nullptr) {
       typeJson.add(*type);
       type++;
     }
 
-    JsonArray links = descr.createNestedArray("links");
+    //JsonArray links = descr.createNestedArray("links");
+	JsonArray links = descr["links"].to<JsonArray>();
     {
-      JsonObject links_prop = links.createNestedObject();
+      // JsonObject links_prop = links.createNestedObject();
+	  JsonObject links_prop = links.add<JsonObject>();
       links_prop["rel"] = "properties";
       links_prop["href"] = "/things/" + this->id + "/properties";
     }
 
     {
-      JsonObject links_prop = links.createNestedObject();
+      //JsonObject links_prop = links.createNestedObject();
+      JsonObject links_prop = links.add<JsonObject>();
       links_prop["rel"] = "actions";
       links_prop["href"] = "/things/" + this->id + "/actions";
     }
 
     {
-      JsonObject links_prop = links.createNestedObject();
+      //JsonObject links_prop = links.createNestedObject();
+	  JsonObject links_prop = links.add<JsonObject>();
       links_prop["rel"] = "events";
       links_prop["href"] = "/things/" + this->id + "/events";
     }
 
 #ifndef WITHOUT_WS
     {
-      JsonObject links_prop = links.createNestedObject();
+      //JsonObject links_prop = links.createNestedObject();
+	  JsonObject links_prop = links.add<JsonObject>();
       links_prop["rel"] = "alternate";
 
       if (port != 80) {
@@ -761,9 +770,11 @@ public:
 
     ThingProperty *property = this->firstProperty;
     if (property != nullptr) {
-      JsonObject properties = descr.createNestedObject("properties");
+      //JsonObject properties = descr.createNestedObject("properties");
+	  JsonObject properties = descr["properties"].to<JsonObject>();
       while (property != nullptr) {
-        JsonObject obj = properties.createNestedObject(property->id);
+        //JsonObject obj = properties.createNestedObject(property->id);
+		JsonObject obj = properties[property->id].to<JsonObject>();
         property->serialize(obj, id, "properties");
         property = (ThingProperty *)property->next;
       }
@@ -771,9 +782,11 @@ public:
 
     ThingAction *action = this->firstAction;
     if (action != nullptr) {
-      JsonObject actions = descr.createNestedObject("actions");
+      //JsonObject actions = descr.createNestedObject("actions");
+	  JsonObject actions = descr["actions"].to<JsonObject>();
       while (action != nullptr) {
-        JsonObject obj = actions.createNestedObject(action->id);
+        //JsonObject obj = actions.createNestedObject(action->id);
+		JsonObject obj = actions[action->id].to<JsonObject>();
         action->serialize(obj, id);
         action = action->next;
       }
@@ -781,9 +794,11 @@ public:
 
     ThingEvent *event = this->firstEvent;
     if (event != nullptr) {
-      JsonObject events = descr.createNestedObject("events");
+      //JsonObject events = descr.createNestedObject("events");
+	  JsonObject events = descr["events"].to<JsonObject>();
       while (event != nullptr) {
-        JsonObject obj = events.createNestedObject(event->id);
+        //JsonObject obj = events.createNestedObject(event->id);
+		JsonObject obj = events[event->id].to<JsonObject>();		
         event->serialize(obj, id, "events");
         event = (ThingEvent *)event->next;
       }
@@ -793,7 +808,8 @@ public:
   void serializeActionQueue(JsonArray array) {
     ThingActionObject *curr = actionQueue;
     while (curr != nullptr) {
-      JsonObject action = array.createNestedObject();
+      //JsonObject action = array.createNestedObject();
+	  JsonObject action = array.add<JsonObject>();
       curr->serialize(action, id);
       curr = curr->next;
     }
@@ -803,7 +819,8 @@ public:
     ThingActionObject *curr = actionQueue;
     while (curr != nullptr) {
       if (curr->name == name) {
-        JsonObject action = array.createNestedObject();
+        //JsonObject action = array.createNestedObject();
+		JsonObject action = array.add<JsonObject>();
         curr->serialize(action, id);
       }
       curr = curr->next;
@@ -813,7 +830,8 @@ public:
   void serializeEventQueue(JsonArray array) {
     ThingEventObject *curr = eventQueue;
     while (curr != nullptr) {
-      JsonObject event = array.createNestedObject();
+      //JsonObject event = array.createNestedObject();
+	  JsonObject event = array.add<JsonObject>();
       curr->serialize(event);
       curr = curr->next;
     }
@@ -823,7 +841,8 @@ public:
     ThingEventObject *curr = eventQueue;
     while (curr != nullptr) {
       if (curr->name == name) {
-        JsonObject event = array.createNestedObject();
+        //JsonObject event = array.createNestedObject();
+		JsonObject event = array.add<JsonObject>();
         curr->serialize(event);
       }
       curr = curr->next;
