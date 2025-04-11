@@ -3,9 +3,8 @@
 webthing-arduino 0.3.0
 ======================
 
-This fork will host updated versions of Thing.h and ESPWebThingAdapter.h 
-to fulfill the API updates for
-ArduinoJson 7.x.x, ESPAsyncWebServer 3.7.2 and esp32 3.1.3.
+This fork hosts updated versions of Thing.h and ESPWebThingAdapter.h 
+to fulfill the API updates for ArduinoJson 7.x.x, ESPAsyncWebServer 3.7.2 and esp32 3.1.3.
 
 EthernetWebThingAdapter.h and WiFiWebThingAdapter.h have NOT been updated as yet.
 
