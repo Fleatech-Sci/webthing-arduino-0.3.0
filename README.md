@@ -1,7 +1,21 @@
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/WebThingsIO/webthing-arduino)
 
-webthing-arduino
-================
+webthing-arduino 0.3.0
+======================
+
+This fork will host updated versions of Thing.h and ESPWebThingAdapter.h 
+[Will be uploaded by 13th April] to fulfill the API updates for
+ArduinoJson 7.x.x, ESPAsyncWebServer 3.7.2 and esp32 3.1.3.
+
+EthernetWebThingAdapter.h and WiFiWebThingAdapter.h have NOT been updated as yet.
+
+The updates to Thing.h and ESPWebThingAdapter are being tested on esp32-c3 and esp32-s3
+at the moment. These are the only esp32 boards that I have on hand.
+
+If you have the patience, please test on other hardware.
+No tests have been performed on esp8266 as yet.
+
+All other information remains the same as in the original webthings-arduino repository.
 
 A simple server for the ESP8266, the ESP32, boards with Ethernet, or any
 WiFi101-compatible board that implements Mozilla's proposed Web of Things API.
