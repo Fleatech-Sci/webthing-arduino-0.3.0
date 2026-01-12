@@ -6,7 +6,7 @@ webthing-arduino 0.3.0
 This fork hosts updated versions of Thing.h and ESPWebThingAdapter.h.
 This fork has been tested with the following libraries on Arduino V2.3.6
 
-esp32\3.3.0\libraries\WiFi
+esp32\3.3.0\libraries\WiFi \
 esp32\3.3.0\libraries\ESPmDNS
 webthing-arduino at version 0.3.0
 ESP Async WebServer at version 3.7.10
