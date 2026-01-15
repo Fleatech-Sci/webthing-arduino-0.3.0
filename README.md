@@ -1,6 +1,6 @@
 [![Gitpod ready-to-code](https://img.shields.io/badge/Gitpod-ready--to--code-blue?logo=gitpod)](https://gitpod.io/#https://github.com/WebThingsIO/webthing-arduino)
 
-webthing-arduino 0.3.0
+webthing-arduino 0.30.0
 ======================
 
 This fork hosts updated versions of Thing.h and ESPWebThingAdapter.h.
